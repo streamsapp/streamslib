@@ -60,14 +60,14 @@ The entries objects returned will have the following structure:
 
 ```
 [
-	{
-		"entryId": "...",
-		"streamId": "..."
-		"body": "calories: 1596",
-		"date": datetime.datetime(...),
-		"modified": datetime.datetime(...)
-	},
-	...
+  {
+    "entryId": "...",
+    "streamId": "..."
+    "body": "calories: 1596",
+    "date": datetime.datetime(...),
+    "modified": datetime.datetime(...)
+  },
+  ...
 ]
 ```
 
@@ -96,14 +96,14 @@ The entries objects returned will have the following structure:
 
 ```
 [
-	{
-		"entryId": "...",
-		"streamId": "...",
-		"body": "calories: 1596",
-		"date": datetime.datetime(...),
-		"modified": datetime.datetime(...)
-	},
-	...
+  {
+    "entryId": "...",
+    "streamId": "...",
+    "body": "calories: 1596",
+    "date": datetime.datetime(...),
+    "modified": datetime.datetime(...)
+  },
+  ...
 ]
 ```
 
