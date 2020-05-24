@@ -1,1 +1,1 @@
-from streamslib import get_streams, get_stream, get_entries, add_entry
+from .streamslib import get_streams, get_stream, get_entries, add_entry

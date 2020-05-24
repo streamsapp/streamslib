@@ -16,6 +16,10 @@ def get_streams(token):
 
   streams = response.json()['streams']
 
+  for stream in streams:
+    stream['created'] = dt.datetime.strptime(stream['created'], '%Y-%m-%dT%H:%M:%S')
+    stream['modified'] = dt.datetime.strptime(stream['modified'], '%Y-%m-%dT%H:%M:%S')
+
   return streams
 
 def get_stream(token, stream_name):
@@ -44,11 +48,19 @@ def get_entries(token, stream_id):
 
   for entry in entries:
     entry['date'] = dt.datetime.strptime(entry['date'], '%Y-%m-%dT%H:%M:%S')
+    entry['modified'] = dt.datetime.strptime(entry['modified'], '%Y-%m-%dT%H:%M:%S')
 
   return entries
 
 def add_entry(token, stream_id, entry):
   headers = { "Authorization": "Bearer " + token}
+
+  if type(entry['date']) is dt.datetime:
+    entry['date'].strftime('%Y-%m-%dT%H:%M:%S')
+  
+  if type(entry['date']) is dt.date:
+    entry['date'].strftime('%Y-%m-%dT00:00:00')
+  
   response = requests.post(API_URL + '/stream/' + stream_id, headers=headers, json=entry)
 
   if response.status_code == 401:
@@ -62,5 +74,6 @@ def add_entry(token, stream_id, entry):
 
   entry = response.json()
   entry['date'] = dt.datetime.strptime(entry['date'], '%Y-%m-%dT%H:%M:%S')
+  entry['modified'] = dt.datetime.strptime(entry['modified'], '%Y-%m-%dT%H:%M:%S')
 
   return entry

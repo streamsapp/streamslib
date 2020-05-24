@@ -9,8 +9,7 @@ setup(
   author='Howard Paget',
   author_email='contact@streamsapp.io',
   url='https://github.com/streamsapp/streamslib',
-  download_url='https://github.com/streamsapp/streamslib/archive/v_01.tar.gz',
-  keywords=['STREAMSAPP.IO'],
+  keywords=['streamsapp.io'],
   install_requires=['requests', 'datetime'],
   classifiers=[
     'Development Status :: 4 - Beta',
