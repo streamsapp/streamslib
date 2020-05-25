@@ -89,21 +89,18 @@ entry = {
   'date': dt.datetime.today()
 }
 
-entries = streamslib.get_entries(token, nutrition['streamId'])
+entry = streamslib.add_entries(token, nutrition['streamId'], entry)
 ```
 
-The entries objects returned will have the following structure:
+The entry object returned will have the following structure:
 
 ```
-[
-  {
-    "entryId": "...",
-    "streamId": "...",
-    "body": "calories: 1596",
-    "date": datetime.datetime(...),
-    "modified": datetime.datetime(...)
-  },
-  ...
-]
+{
+  "entryId": "...",
+  "streamId": "...",
+  "body": "calories: 1596",
+  "date": datetime.datetime(...),
+  "modified": datetime.datetime(...)
+}
 ```
 
