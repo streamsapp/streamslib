@@ -10,34 +10,37 @@ Primary purpose of this library is assist will creating scripts that import data
 pip install git+https://github.com/streamsapp/streamslib
 ```
 
-## Authorisation Token
+## Create a StreamsClient
 
-Streams uses tokens to provide access to streams and entries. A long lived token can be created in the [account section](https://www.streamsapp.io/#/account) of the app. In the examples below we have created an environment variable called `STREAMS_ACCESS_TOKEN` which stores an access token.
+`StreamsClient` is the object through which the Streams API is accessed. It provides methods: get_streams, get_entries, add_entry, and add_entries.
 
-## Get Streams
-
-The functions `get_streams(token)` and `get_stream(token, stream_name)` are provided to get streams.
+To create a client simply pass your email and password into the client:  
 
 ```
 import streamslib
-import os
 
-token = os.environ['STREAMS_ACCESS_TOKEN']
+streams_client = StreamsClient('email', 'password')
+```
 
-all_streams = streamslib.get_streams(token)
+It is advised to store your credentials as environment variables rather than in the code directly, see example.py for an example of this.
 
-# or
+## Get Streams
 
-nutrition = streamslib.get_stream(token, 'nutrition')
+The function `get_streams()` is provided to get streams.
+
+```
+streams = streamslib.get_stream()
 ```
 
 The stream objects returned will have the following structure:
 
 ```
 {
-  "streamId": "...",
+  "id": "...",
   "name": "workouts",
   "icon": "🏋️",
+  "format": "...",
+  "input_spec": { ... },
   "created": datetime.datetime(...),
   "modified": datetime.datetime(...)
 }
@@ -45,62 +48,45 @@ The stream objects returned will have the following structure:
 
 ## Get Entries
 
-The function `get_entries(token, stream_id)` is provided to get entries.
+The function `get_entries(stream)` is provided to get entries as a pandas DataFrame.
 
 ```
-import streamslib
-import os
+streams = streamslib.get_stream()
 
-token = os.environ['STREAMS_ACCESS_TOKEN']
-nutrition = streamslib.get_stream(token, 'nutrition')
-entries = streamslib.get_entries(token, nutrition['streamId'])
-```
+stream = streams[0]
 
-The entries objects returned will have the following structure:
-
-```
-[
-  {
-    "entryId": "...",
-    "streamId": "..."
-    "body": "calories: 1596",
-    "date": datetime.datetime(...),
-    "modified": datetime.datetime(...)
-  },
-  ...
-]
+entries = streamslib.get_entries(stream)
 ```
 
 ## Add Entry
 
-The function `add_entry(token, stream_id, entry)` is provided to add entries to a stream.
-
+The function `add_entry(entry)` is provided to add entries to a stream.
 
 ```
-import streamslib
-import os
-import datetime as dt
-
-token = os.environ['STREAMS_ACCESS_TOKEN']
-nutrition = streamslib.get_stream(token, 'nutrition')
-
-entry = {
-  'text': 'Hello from Python',
-  'date': dt.datetime.today()
+contents = {
+  'type': 'run',
+  'distance': 1.8,
+  'time': 12
 }
 
-entry = streamslib.add_entries(token, nutrition['streamId'], entry)
+entry = Entry(None, stream.id, contents, date)
+
+streamslib.add_entry(entry)
 ```
 
-The entry object returned will have the following structure:
+## Add Entries
+
+The function `add_entries(entries)` is provided to add multiple entries to a stream in bulk.
 
 ```
-{
-  "entryId": "...",
-  "streamId": "...",
-  "body": "calories: 1596",
-  "date": datetime.datetime(...),
-  "modified": datetime.datetime(...)
-}
-```
+contents1 = { ... }
+contents2 = { ... }
 
+entries = [
+  Entry(None, stream.id, contents1, date1),
+  Entry(None, stream.id, contents2, date2),
+  ...
+]
+
+streamslib.add_entries(entry)
+```
