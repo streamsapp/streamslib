@@ -10,7 +10,7 @@ setup(
   author_email='contact@streamsapp.io',
   url='https://github.com/streamsapp/streamslib',
   keywords=['streamsapp.io'],
-  install_requires=['requests', 'datetime'],
+  install_requires=['requests', 'datetime', 'pandas', 'uuid'],
   classifiers=[
     'Development Status :: 4 - Beta',
     'Intended Audience :: Developers',

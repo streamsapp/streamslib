@@ -1,79 +1,215 @@
+from __future__ import annotations
+
 import requests
 import datetime as dt
+import pandas as pd
+from typing import List
+import uuid
+import urllib.parse
+import dateutil.parser
 
-API_URL = 'https://api.streamsapp.io'
+class Token:
+  access_token: str
+  refresh_token: str
 
-def get_streams(token):
-  headers = { "Authorization": "Bearer " + token}
+  def __init__(self, access_token: str, refresh_token: str):
+    self.access_token = access_token
+    self.refresh_token = refresh_token
 
-  response = requests.get(API_URL + '/streams', headers=headers)
+  @staticmethod
+  def from_json(json: dict) -> Token:
+    return Token(json['accessToken'], json['refreshToken'])
 
-  if response.status_code == 401:
-    raise Exception('Unauthorized - invalid token')
 
-  if response.status_code != 200:
-    raise Exception('Could not retrieve streams')
+class Field:
+  id: str
+  name: str
+  type: str
+  values: List[str]
 
-  streams = response.json()['streams']
+  def __init__(self, id: str, name: str, type: str, values: List[str]):
+    self.id = id
+    self.name = name
+    self.type = type
+    self.values = values
 
-  for stream in streams:
-    stream['created'] = dt.datetime.strptime(stream['created'], '%Y-%m-%dT%H:%M:%S')
-    stream['modified'] = dt.datetime.strptime(stream['modified'], '%Y-%m-%dT%H:%M:%S')
+  @staticmethod
+  def from_json(json: dict) -> Field:
+    return Field(json['id'], json['name'], json['type'], json['values'])
 
-  return streams
 
-def get_stream(token, stream_name):
-  streams = get_streams(token)
-  stream = [stream for stream in streams if stream['name'] == stream_name]
+class InputSpec:
+  fields: List[Field]
 
-  if len(stream) == 0:
-    raise Exception('Could not find stream with name=' + stream_name)
+  def __init__(self, fields: List[Field]):
+    self.fields = fields
 
-  return stream[0]
 
-def get_entries(token, stream_id):
-  headers = { "Authorization": "Bearer " + token}
-  response = requests.get(API_URL + '/stream/' + stream_id, headers=headers)
+  @staticmethod
+  def from_json(json: List[dict]) -> InputSpec:
+    return InputSpec(list(map(lambda f: Field.from_json(f), json['fields'])))
 
-  if response.status_code == 401:
-    raise Exception('Unauthorized - invalid token')
 
-  if response.status_code == 404:
-    raise Exception('Could not find stream with id=' + stream_id)
+class Stream:
+  id: str
+  name: str
+  format: str
+  input_spec: InputSpec
+  created_date: dt.datetime
+  modified_date: dt.datetime
 
-  if response.status_code != 200:
-    raise Exception('Could not retrieve entries')
+  def __init__(self, id: str, name: str, format: str, input_spec: InputSpec, created_date: dt.datetime, modified_date: dt.datetime):
+    self.id = str(uuid.uuid4()) if id is None else id
+    self.name = name
+    self.format = format
+    self.input_spec = input_spec
+    self.created_date = created_date
+    self.modified_date = modified_date
 
-  entries = response.json()['entries']
+  @staticmethod
+  def from_json(json: dict) -> Stream:
+    return Stream(json['id'], json['name'], json['format'], InputSpec.from_json(json['inputSpec']), 
+          dateutil.parser.isoparse(json['createdDate']),
+          dateutil.parser.isoparse(json['modifiedDate']))
 
-  for entry in entries:
-    entry['date'] = dt.datetime.strptime(entry['date'], '%Y-%m-%dT%H:%M:%S')
-    entry['modified'] = dt.datetime.strptime(entry['modified'], '%Y-%m-%dT%H:%M:%S')
 
-  return entries
+class Entry:
+  id: str
+  stream_id: str
+  contents: dict
+  date: dt.datetime
+  created_date: dt.datetime
+  modified_date: dt.datetime
 
-def add_entry(token, stream_id, entry):
-  headers = { "Authorization": "Bearer " + token}
+  def __init__(self, id: str, stream_id: str, contents: dict, date: dt.datetime,
+                created_date: dt.datetime = dt.datetime.now().replace(microsecond=0),
+                modified_date: dt.datetime = dt.datetime.now().replace(microsecond=0)):
+    self.id = str(uuid.uuid4()) if id is None else id
+    self.stream_id = stream_id
+    self.contents = contents
+    self.date = date if isinstance(date, dt.datetime) else dt.datetime.combine(date, dt.time(12, 0, 0, 0)) 
+    self.created_date = created_date
+    self.modified_date = modified_date
 
-  if type(entry['date']) is dt.datetime:
-    entry['date'].strftime('%Y-%m-%dT%H:%M:%S')
-  
-  if type(entry['date']) is dt.date:
-    entry['date'].strftime('%Y-%m-%dT00:00:00')
-  
-  response = requests.post(API_URL + '/stream/' + stream_id, headers=headers, json=entry)
+  @staticmethod
+  def from_json(json: dict) -> Entry:
+    return Entry(json['id'], json['streamId'], json['contents'],
+          dateutil.parser.isoparse(json['date']),
+          dateutil.parser.isoparse(json['createdDate']),
+          dateutil.parser.isoparse(json['modifiedDate']))
 
-  if response.status_code == 401:
-    raise Exception('Unauthorized - invalid token')
+  def to_json(self) -> dict:
+    return {
+      'id': self.id,
+      'streamId': self.stream_id,
+      'contents': self.contents,
+      'date': self.date.astimezone().isoformat(),
+      'createdDate': self.created_date.astimezone().isoformat(),
+      'modifiedDate': self.modified_date.astimezone().isoformat()
+    }
 
-  if response.status_code == 404:
-    raise Exception('Could not find stream with id=' + stream_id)
 
-  if response.status_code != 200:
-    raise Exception('Could not add entry')
+class StreamsClient:
+  __api_url: str
+  __token: Token
 
-  entry = response.json()
-  entry['date'] = dt.datetime.strptime(entry['date'], '%Y-%m-%dT%H:%M:%S')
-  entry['modified'] = dt.datetime.strptime(entry['modified'], '%Y-%m-%dT%H:%M:%S')
+  def __init__(self, email: str, password: str, api_url='https://api.streamsapp.io') -> Token:
+    self.__api_url = api_url
+    
+    headers = { 'Content-Type': 'application/json' }
+    response = requests.post(self.__api_url + '/login', headers=headers, json={ "username": email, "password": password })
+    
+    if response.status_code == 401 or response.status_code == 403:
+      raise Exception('Invalid credentials: ' + response.text)
 
-  return entry
+    if response.status_code != 200:
+      raise Exception('Could not log in: ' + response.text)
+    
+    self.__token = Token.from_json(response.json())
+
+
+  def get_streams(self) -> List[Stream]:
+    headers = { "Authorization": "Bearer " + self.__token.access_token}
+
+    response = requests.get(self.__api_url + '/streams', headers=headers)
+
+    if response.status_code == 401:
+      raise Exception('Unauthorized - invalid token')
+
+    if response.status_code != 200:
+      raise Exception('Could not retrieve streams: ' + response.text)
+
+    streams = response.json()
+
+    result = []
+
+    for stream in streams:
+      result.append(Stream.from_json(stream))
+
+    return result
+
+  def get_entries(self, stream: Stream) -> pd.DataFrame:
+    headers = { "Authorization": "Bearer " + self.__token.access_token }
+    response = requests.get(self.__api_url + '/streams/' + stream.id + '/entries', headers=headers)
+
+    if response.status_code == 401:
+      raise Exception('Unauthorized - invalid token')
+
+    if response.status_code == 404:
+      raise Exception('Could not find stream with id=' + stream.id)
+
+    if response.status_code != 200:
+      raise Exception('Could not retrieve entries')
+
+    entries = response.json()
+    normalised_entries = []
+
+    name_map = { f.id: f.name for f in stream.input_spec.fields }
+
+    for entry in entries:
+
+      contents = {}
+
+      for (k, v) in entry['contents'].items():
+        if k in name_map:
+          contents[name_map[k]] = v
+
+      normalised_entries.append(dict(id=entry['id'], streamId=entry['streamId'], date=dateutil.parser.isoparse(entry['date']), **contents ))
+
+    return pd.DataFrame.from_dict(normalised_entries)
+
+
+  def add_entry(self, entry: Entry) -> None:
+    headers = { "Authorization": "Bearer " + self.__token.access_token }
+
+    response = requests.post(self.__api_url + '/streams/' + entry.stream_id + '/entries', headers=headers, json=entry.to_json())
+
+    if response.status_code == 401:
+      raise Exception('Unauthorized - invalid token')
+
+    if response.status_code == 404:
+      raise Exception('Could not find stream with id=' + entry.stream_id)
+
+    if response.status_code != 200:
+      print(response.text)
+      raise Exception('Could not add entry: ' + str(response.status_code))
+
+
+  def add_entries(self, entries: List[Entry]):
+    headers = { 'Authorization': 'Bearer ' + self.__token.access_token}
+    
+    body = {
+      'modifiedStreams': [],
+      'deletedStreams': [],
+      'modifiedEntries': list(map(lambda e: e.to_json(), entries)),
+      'deletedEntries': []
+    }
+
+    response = requests.post(self.__api_url + '/sync?date=' + urllib.parse.quote(dt.datetime.now().replace(microsecond=0).astimezone().isoformat()), headers=headers, json=body)
+
+    if response.status_code == 401:
+      raise Exception('Unauthorized - invalid token')
+
+    if response.status_code != 200:
+      print(response.text)
+      raise Exception('Could not add entries: ' + str(response.status_code))
